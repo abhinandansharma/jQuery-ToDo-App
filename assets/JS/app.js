@@ -23,13 +23,10 @@ $("input[type='text']").keypress(function(event){
 
 //function to add todo
 function add(todo){
-    $("ul").append("<li><span>X </span>" + todo + "</li>")
+    $("ul").append("<li><span><img src='assets/SVG/check_box.svg'></span>" + todo + "</li>")
 }
-//to show trash button
-$("#todos").on("mouseEnter", "li", function(){
-    $(this).child().css().addClass("show")
-})
-//to hide trash button
-$("#todos").on("mouseLeave", "li", function () {
-    $(this).child().css().removeClass("show")
+
+//show and hide input
+$("#create").click(function(){
+    $("input[type='text']").toggleClass("hide")
 })

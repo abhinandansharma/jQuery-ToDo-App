@@ -2,6 +2,12 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     background: linear-gradient(90deg, #2BC0E4 10%, #EAECC6 90%);
 }
+
+#create {
+    float: right;
+    padding-top: 7px;
+}
+
 h1 {
     background-color: #2980b9;
     color: white;
@@ -9,6 +15,7 @@ h1 {
     text-transform: uppercase;
     font-size: 24px;
     font-weight: normal;
+    margin-bottom: 0;
 }
 
 ul {
@@ -18,10 +25,10 @@ ul {
 }
 
 li {
-    padding: 0.2rem;
     background-color: #fff;
     line-height: 40px;
-    color: #666;
+    color:rgb(71, 71, 71);
+    font-size: 15px;
 }
 li:nth-child(2n) {
     background-color: #f7f7f7;
@@ -33,6 +40,7 @@ input {
     width: 100%;
     padding: 13px 13px;
     box-sizing: border-box;
+    border: 3px solid rgba(0,0,0,0);
 }
 input:focus {
     background-color: #fff;
@@ -45,11 +53,7 @@ input:focus {
     background-color: #f7f7f7;
     width: 360px;
     margin: 0 auto;
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
-}
-
-.show {
-    display: block;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
 }
 
 .completed {
@@ -57,6 +61,23 @@ input:focus {
     text-decoration: line-through;
 }
 
-#todos span {
+span {
+    background-color: #e74c3c;
+    height:40px;
+    margin-right: 20px;
+    text-align: center;
+    color: white;
+    width: 0;
+    display: inline-block;
+    transition: 0.2s linear;
+    opacity: 0;
+}
+
+li:hover span {
+    width: 40px;
+    opacity: 1.0;
+}
+
+.hide {
     display: none;
 }
