@@ -2,44 +2,88 @@ $(document).ready(function() {
     // App state
     let tasks = [];
     let currentFilter = 'all';
+    let searchQuery = '';
     
     // Cache DOM elements
     const $taskList = $('#task-list');
     const $newTaskInput = $('#new-task-input');
     const $addTaskBtn = $('#add-task-btn');
-    const $taskCount = $('#task-count');
+    const $prioritySelect = $('#priority-select');
+    const $searchInput = $('#search-input');
+    const $clearSearchBtn = $('#clear-search');
     const $emptyState = $('#empty-state');
+    const $noSearchResults = $('#no-search-results');
     const $filterBtns = $('.filter-btn');
     const $clearCompletedBtn = $('#clear-completed');
+    const $themeToggle = $('#theme-toggle');
+    
+    // Statistics elements
+    const $totalTasks = $('#total-tasks');
+    const $activeTasks = $('#active-tasks');
+    const $completedTasks = $('#completed-tasks');
+    const $progressFill = $('#progress-fill');
+    const $progressText = $('#progress-text');
 
     // Initialize app
     init();
 
     function init() {
+        loadTheme();
         loadSampleTasks();
-        updateTaskCount();
-        updateUI();
         bindEvents();
+        updateStats();
+        updateUI();
+    }
+
+    function loadTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        
+        showNotification(`Switched to ${newTheme} mode`, 'info');
     }
 
     function loadSampleTasks() {
-        // Convert existing sample tasks to task objects
+        // Convert existing sample tasks to task objects and add proper data attributes
         $('.task-item').each(function(index) {
-            const taskText = $(this).find('.task-text').text();
-            tasks.push({
-                id: Date.now() + index,
+            const $item = $(this);
+            const taskText = $item.find('.task-text').text();
+            const priorityClass = $item.find('.priority-badge').attr('class');
+            let priority = 'medium';
+            
+            if (priorityClass && priorityClass.includes('priority-high')) priority = 'high';
+            else if (priorityClass && priorityClass.includes('priority-low')) priority = 'low';
+            
+            const taskId = Date.now() + index;
+            const task = {
+                id: taskId,
                 text: taskText,
+                priority: priority,
                 completed: false,
-                timestamp: Date.now()
-            });
+                timestamp: Date.now(),
+                dueDate: null
+            };
+            
+            tasks.push(task);
+            $item.attr('data-task-id', taskId);
         });
     }
 
     function bindEvents() {
+        // Theme toggle
+        $themeToggle.on('click', toggleTheme);
+        
         // Add task on Enter key or button click
         $newTaskInput.on('keypress', function(e) {
             if (e.which === 13 && $(this).val().trim() !== '') {
-                addTask($(this).val().trim());
+                addTask($(this).val().trim(), $prioritySelect.val());
                 $(this).val('');
             }
         });
@@ -47,9 +91,28 @@ $(document).ready(function() {
         $addTaskBtn.on('click', function() {
             const taskText = $newTaskInput.val().trim();
             if (taskText !== '') {
-                addTask(taskText);
+                addTask(taskText, $prioritySelect.val());
                 $newTaskInput.val('');
             }
+        });
+
+        // Search functionality
+        $searchInput.on('input', function() {
+            searchQuery = $(this).val().toLowerCase();
+            if (searchQuery) {
+                $clearSearchBtn.show();
+            } else {
+                $clearSearchBtn.hide();
+            }
+            applyFilters();
+        });
+
+        $clearSearchBtn.on('click', function() {
+            $searchInput.val('');
+            searchQuery = '';
+            $(this).hide();
+            applyFilters();
+            $searchInput.focus();
         });
 
         // Toggle task completion
@@ -84,12 +147,14 @@ $(document).ready(function() {
         });
     }
 
-    function addTask(text) {
+    function addTask(text, priority = 'medium') {
         const task = {
             id: Date.now(),
             text: text,
+            priority: priority,
             completed: false,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            dueDate: null
         };
 
         tasks.unshift(task); // Add to beginning of array
@@ -103,14 +168,20 @@ $(document).ready(function() {
             $taskList.prepend($taskElement);
         }
 
-        updateTaskCount();
-        updateUI();
+        updateStats();
+        applyFilters();
         
         // Show success feedback
         showNotification('Task added successfully!', 'success');
     }
 
     function createTaskElement(task) {
+        const priorityLabels = {
+            high: 'High Priority',
+            medium: 'Medium Priority', 
+            low: 'Low Priority'
+        };
+
         return $(`
             <li class="task-item ${task.completed ? 'completed' : ''}" role="listitem" data-task-id="${task.id}">
                 <div class="task-content">
@@ -119,7 +190,12 @@ $(document).ready(function() {
                             <polyline points="20,6 9,17 4,12"></polyline>
                         </svg>
                     </button>
-                    <span class="task-text">${escapeHtml(task.text)}</span>
+                    <div class="task-details">
+                        <span class="task-text">${escapeHtml(task.text)}</span>
+                        <div class="task-meta">
+                            <span class="priority-badge priority-${task.priority}">${priorityLabels[task.priority]}</span>
+                        </div>
+                    </div>
                 </div>
                 <button class="delete-btn" aria-label="Delete task">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -151,8 +227,8 @@ $(document).ready(function() {
                 showNotification('Task marked as active', 'info');
             }
 
-            updateTaskCount();
-            updateUI();
+            updateStats();
+            applyFilters();
         }
     }
 
@@ -164,8 +240,8 @@ $(document).ready(function() {
         setTimeout(() => {
             tasks = tasks.filter(t => t.id != taskId);
             $taskElement.remove();
-            updateTaskCount();
-            updateUI();
+            updateStats();
+            applyFilters();
             showNotification('Task deleted', 'info');
         }, 300);
     }
@@ -177,11 +253,14 @@ $(document).ready(function() {
         $filterBtns.removeClass('active');
         $(`.filter-btn[data-filter="${filter}"]`).addClass('active');
         
-        // Filter tasks
-        filterTasks();
+        // Apply filters
+        applyFilters();
     }
 
-    function filterTasks() {
+    function applyFilters() {
+        let visibleCount = 0;
+        let searchResults = 0;
+
         $('.task-item').each(function() {
             const $item = $(this);
             const taskId = $item.data('task-id');
@@ -191,6 +270,7 @@ $(document).ready(function() {
 
             let shouldShow = false;
             
+            // Apply priority/status filter
             switch (currentFilter) {
                 case 'all':
                     shouldShow = true;
@@ -201,16 +281,57 @@ $(document).ready(function() {
                 case 'completed':
                     shouldShow = task.completed;
                     break;
+                case 'high':
+                    shouldShow = task.priority === 'high';
+                    break;
+            }
+
+            // Apply search filter
+            if (shouldShow && searchQuery) {
+                const taskText = task.text.toLowerCase();
+                shouldShow = taskText.includes(searchQuery);
+                
+                if (shouldShow) {
+                    searchResults++;
+                    // Highlight search terms
+                    highlightSearchTerms($item, searchQuery);
+                } else {
+                    removeHighlight($item);
+                }
+            } else if (shouldShow) {
+                removeHighlight($item);
+                searchResults++;
             }
 
             if (shouldShow) {
-                $item.show();
+                $item.removeClass('hidden').show();
+                visibleCount++;
             } else {
-                $item.hide();
+                $item.addClass('hidden').hide();
             }
         });
 
-        updateUI();
+        updateUI(visibleCount, searchResults);
+    }
+
+    function highlightSearchTerms($item, query) {
+        const $taskText = $item.find('.task-text');
+        const text = $taskText.text();
+        const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+        const highlighted = text.replace(regex, '<span class="search-highlight">$1</span>');
+        $taskText.html(highlighted);
+    }
+
+    function removeHighlight($item) {
+        const $taskText = $item.find('.task-text');
+        const task = tasks.find(t => t.id == $item.data('task-id'));
+        if (task) {
+            $taskText.html(escapeHtml(task.text));
+        }
+    }
+
+    function escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function clearCompletedTasks() {
@@ -228,33 +349,54 @@ $(document).ready(function() {
         setTimeout(() => {
             tasks = tasks.filter(t => !t.completed);
             completedTasks.remove();
-            updateTaskCount();
-            updateUI();
+            updateStats();
+            applyFilters();
             showNotification(`Cleared ${completedTasks.length} completed task(s)`, 'success');
         }, 300);
     }
 
-    function updateTaskCount() {
-        const activeTasks = tasks.filter(t => !t.completed).length;
-        $taskCount.text(activeTasks);
-        
+    function updateStats() {
+        const total = tasks.length;
+        const active = tasks.filter(t => !t.completed).length;
+        const completed = tasks.filter(t => t.completed).length;
+        const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        $totalTasks.text(total);
+        $activeTasks.text(active);
+        $completedTasks.text(completed);
+        $progressFill.css('width', `${progress}%`);
+        $progressText.text(`${progress}% Complete`);
+
         // Update clear completed button state
-        const completedTasks = tasks.filter(t => t.completed).length;
-        $clearCompletedBtn.prop('disabled', completedTasks === 0);
+        $clearCompletedBtn.prop('disabled', completed === 0);
     }
 
-    function updateUI() {
-        const visibleTasks = $('.task-item:visible').length;
+    function updateUI(visibleCount, searchResults) {
+        const hasSearch = searchQuery.length > 0;
+        const hasResults = visibleCount > 0;
         
-        if (visibleTasks === 0) {
-            $emptyState.fadeIn(300);
+        if (hasSearch && !hasResults) {
+            // Show no search results
+            $noSearchResults.fadeIn(300);
+            $emptyState.hide();
             $taskList.hide();
+        } else if (!hasResults && !hasSearch) {
+            // Show empty state
+            $emptyState.fadeIn(300);
+            $noSearchResults.hide();
+            $taskList.hide();
+            
+            // Update empty state message based on filter
+            updateEmptyStateMessage();
         } else {
-            $emptyState.fadeOut(300);
+            // Show task list
+            $emptyState.hide();
+            $noSearchResults.hide();
             $taskList.show();
         }
+    }
 
-        // Update empty state message based on filter
+    function updateEmptyStateMessage() {
         const $emptyTitle = $emptyState.find('h3');
         const $emptyText = $emptyState.find('p');
         
@@ -266,6 +408,10 @@ $(document).ready(function() {
             case 'completed':
                 $emptyTitle.text('No completed tasks!');
                 $emptyText.text('Complete some tasks to see them here.');
+                break;
+            case 'high':
+                $emptyTitle.text('No high priority tasks!');
+                $emptyText.text('You have no urgent tasks at the moment.');
                 break;
             default:
                 $emptyTitle.text('All caught up!');
@@ -364,4 +510,9 @@ $(document).ready(function() {
     setTimeout(() => {
         $newTaskInput.focus();
     }, 500);
+
+    // Welcome message for new features
+    setTimeout(() => {
+        showNotification('Welcome to TaskMaster Pro! Try the new dark mode toggle! 🌙', 'info');
+    }, 1000);
 });
