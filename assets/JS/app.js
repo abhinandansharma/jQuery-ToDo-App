@@ -17,21 +17,27 @@ $(document).ready(function() {
 
     function init() {
         loadSampleTasks();
+        bindEvents();
         updateTaskCount();
         updateUI();
-        bindEvents();
     }
 
     function loadSampleTasks() {
-        // Convert existing sample tasks to task objects
+        // Convert existing sample tasks to task objects and add proper data attributes
         $('.task-item').each(function(index) {
             const taskText = $(this).find('.task-text').text();
-            tasks.push({
-                id: Date.now() + index,
+            const taskId = Date.now() + index;
+            const task = {
+                id: taskId,
                 text: taskText,
                 completed: false,
                 timestamp: Date.now()
-            });
+            };
+            
+            tasks.push(task);
+            
+            // Add the data-task-id attribute to the existing DOM element
+            $(this).attr('data-task-id', taskId);
         });
     }
 
