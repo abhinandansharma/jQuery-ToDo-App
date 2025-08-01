@@ -48,6 +48,7 @@ $(document).ready(function() {
         localStorage.setItem('theme', newTheme);
         
         showNotification(`Switched to ${newTheme} mode`, 'info');
+
     }
 
     function loadSampleTasks() {
@@ -61,6 +62,7 @@ $(document).ready(function() {
             if (priorityClass && priorityClass.includes('priority-high')) priority = 'high';
             else if (priorityClass && priorityClass.includes('priority-low')) priority = 'low';
             
+
             const taskId = Date.now() + index;
             const task = {
                 id: taskId,
